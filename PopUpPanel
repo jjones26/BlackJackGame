@@ -1,0 +1,31 @@
+extends PopupPanel
+
+# Signal to communicate button presses
+signal home_pressed
+signal next_level_pressed
+
+# References to UI elements
+@onready var message_label = $VBoxContainer/MessageLabel
+@onready var home_button = $VBoxContainer/HBoxContainer/HomeButton
+@onready var next_level_button = $VBoxContainer/HBoxContainer/NextLevelButton
+
+func _ready():
+	# Connect button signals
+	home_button.pressed.connect(_on_home_button_pressed)
+	next_level_button.pressed.connect(_on_next_level_button_pressed)
+
+func set_message(message: String):
+	# Updates the message label text
+	message_label.text = message
+
+func show_popup(message: String, show_next_level: bool):
+	# Set the message and button visibility
+	set_message(message)  # Use the set_message function
+	next_level_button.visible = show_next_level
+	popup_centered()
+
+func _on_home_button_pressed():
+	emit_signal("home_pressed")
+
+func _on_next_level_button_pressed():
+	emit_signal("next_level_pressed")
