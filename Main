@@ -1,0 +1,185 @@
+extends Node2D
+
+# Signals
+signal deal_pressed
+signal hit_pressed
+signal stand_pressed
+
+# Variables
+var player_hand: Array = []  # Player's cards
+var dealer_hand: Array = []  # Dealer's cards
+const PLAYER_CARD_START_Y: float = 900
+const DEALER_CARD_START_Y: float = 550
+const CARD_START_X: float = 700
+const CARD_SPACING: float = 120
+var player_score: int = 0
+var level: int = 1
+var hands_played: int = 0
+
+# UI Elements
+var player_score_label: Label
+var dealer_score_label: Label
+var hands_played_label: Label
+var level_label: Label
+var results_label: Label
+var popup_panel
+
+# Called when the node enters the scene tree
+func _ready():
+	# Connect UI buttons
+	var deal_button = $UI/Control/DealButton
+	var hit_button = $UI/Control/HitButton
+	var stand_button = $UI/Control/StandButton
+	player_score_label = $UI/Control/PlayerHandScoreLabel
+	dealer_score_label = $UI/Control/DealerHandScoreLabel
+	hands_played_label = $UI/Control/HandsPlayedLabel
+	level_label = $UI/Control/LevelLabel
+	results_label = $UI/Control/ResultsLabel  # Add a reference to the results label
+	popup_panel = $UI/PopupPanel
+
+	# Connect popup panel signals
+	popup_panel.connect("home_pressed", Callable(self, "_on_home_pressed"))
+	popup_panel.connect("next_level_pressed", Callable(self, "_on_next_level_pressed"))
+
+	deal_button.pressed.connect(_on_deal_pressed)
+	hit_button.pressed.connect(_on_hit_pressed)
+	stand_button.pressed.connect(_on_stand_pressed)
+
+	# Initialize the deck
+	$CardContainer.initialize_deck()
+
+	# Set initial values for UI
+	player_score_label.text = "Player Score: 0"
+	dealer_score_label.text = "Dealer Score: 0"
+	hands_played_label.text = "Hands Played: 0"
+	level_label.text = "Level: 1"
+	results_label.text = ""  # Clear the results label initially
+	popup_panel.hide()
+
+# Button signal handlers
+func _on_deal_pressed():
+	clear_hands()
+	hands_played += 1
+	hands_played_label.text = "Hands Played: %d" % hands_played
+
+	# Draw two cards for the player
+	for i in range(2):
+		var card = $CardContainer.draw_card()
+		if card != "":
+			player_hand.append(card)
+			$CardContainer.load_card(card, Vector2(CARD_START_X + i * CARD_SPACING, PLAYER_CARD_START_Y))
+	
+	# Draw two cards for the dealer
+	for i in range(2):
+		var card = $CardContainer.draw_card()
+		if card != "":
+			dealer_hand.append(card)
+			$CardContainer.load_card(card, Vector2(CARD_START_X + i * CARD_SPACING, DEALER_CARD_START_Y))
+	
+	update_hand_scores()
+
+func _on_hit_pressed():
+	var card = $CardContainer.draw_card()
+	if card != "":
+		player_hand.append(card)
+		var x_position = CARD_START_X + player_hand.size() * CARD_SPACING
+		$CardContainer.load_card(card, Vector2(x_position, PLAYER_CARD_START_Y))
+	update_hand_scores()
+
+func _on_stand_pressed():
+	while calculate_hand_value(dealer_hand) < 17:
+		var card = $CardContainer.draw_card()
+		if card != "":
+			dealer_hand.append(card)
+			var x_position = CARD_START_X + dealer_hand.size() * CARD_SPACING
+			$CardContainer.load_card(card, Vector2(x_position, DEALER_CARD_START_Y))
+
+	update_hand_scores()
+	check_results()
+
+# Updates the player's and dealer's hand score in the UI
+func update_hand_scores():
+	player_score_label.text = "Player Score: %d" % calculate_hand_value(player_hand)
+	dealer_score_label.text = "Dealer Score: %d" % calculate_hand_value(dealer_hand)
+
+# Checks the results of the round and handles scoring
+func check_results():
+	var player_value = calculate_hand_value(player_hand)
+	var dealer_value = calculate_hand_value(dealer_hand)
+	var message = ""
+
+	if player_value > 21:
+		message = "Player Busted! Dealer Wins!"
+	elif dealer_value > 21:
+		player_score += player_value
+		message = "Dealer Busted! Player Wins!"
+	elif player_value > dealer_value:
+		player_score += player_value
+		message = "Player Wins!"
+	elif player_value < dealer_value:
+		message = "Dealer Wins!"
+	else:
+		message = "It's a Tie!"
+
+	# Update the results label after each hand
+	results_label.text = message
+	
+	# Ensure the player_score_label is updated during the round
+	player_score_label.text = "Player Score: %d" % player_score
+
+	# Check if the level is over
+	if hands_played >= 10:
+		check_level_end()
+
+	level_label.text = "Level: %d" % level
+
+# Checks if the player advances or loses
+func check_level_end():
+	if player_score >= level * 100:
+		popup_panel.show_popup("Level Complete! Score: %d" % player_score, true)
+	else:
+		popup_panel.show_popup("Game Over! Score: %d" % player_score, false)
+
+# Clears the hands for the next round
+func clear_hands():
+	player_hand.clear()
+	dealer_hand.clear()
+	for child in $CardContainer.get_children():
+		$CardContainer.remove_child(child)
+		child.queue_free()
+
+# Helper function to calculate hand value
+func calculate_hand_value(hand: Array) -> int:
+	var total = 0
+	var ace_count = 0
+	for card in hand:
+		var rank = card.split("_")[2]
+		if rank == "A":
+			ace_count += 1
+			total += 11
+		elif rank in ["K", "Q", "J"]:
+			total += 10
+		else:
+			total += int(rank)
+	while total > 21 and ace_count > 0:
+		total -= 10
+		ace_count -= 1
+	return total
+
+# Handles returning to the home screen
+func _on_home_pressed():
+	var home_scene = preload("res://Scenes/HomeScreen.tscn")
+	get_tree().root.add_child(home_scene.instance())
+	get_tree().current_scene.free()
+	get_tree().current_scene = home_scene
+
+# Handles moving to the next level
+func _on_next_level_pressed():
+	level += 1
+	hands_played = 0
+	player_score = 0
+	level_label.text = "Level: %d" % level
+	hands_played_label.text = "Hands Played: 0"
+	player_score_label.text = "Player Score: 0"
+	results_label.text = ""  # Clear the results for the new level
+	popup_panel.hide()
