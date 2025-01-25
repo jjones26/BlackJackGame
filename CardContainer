@@ -1,0 +1,45 @@
+extends Node2D
+
+# Path to the card assets
+const CARD_FOLDER := "res://Assets/Cards/"
+var deck: Array = []  # The multi-deck shoe
+
+# Function to initialize multiple decks and shuffle them
+func initialize_deck(deck_count: int = 6):
+	deck = []
+	var suits = ["clubs", "diamonds", "hearts", "spades"]
+	var ranks = ["02", "03", "04", "05", "06", "07", "08", "09", "10", "J", "Q", "K", "A"]  # Correct naming convention
+	
+	# Generate multiple decks
+	for i in range(deck_count):
+		for suit in suits:
+			for rank in ranks:
+				deck.append("card_%s_%s" % [suit, rank])
+	
+	# Shuffle the full multi-deck shoe
+	deck.shuffle()
+	print("%d decks initialized and shuffled. Total cards: %d" % [deck_count, deck.size()])
+
+# Function to draw a random card from the shoe
+func draw_card() -> String:
+	if deck.size() > 0:
+		return deck.pop_front()  # Remove and return the first card
+	else:
+		print("The shoe is empty!")
+		return ""
+
+# Function to load a card sprite dynamically
+func load_card(card_name: String, position: Vector2) -> Sprite2D:
+	var card_path = CARD_FOLDER + card_name + ".png"
+	var card_texture = load(card_path)
+	
+	if card_texture:
+		var card_sprite = Sprite2D.new()
+		card_sprite.texture = card_texture
+		card_sprite.position = position
+		add_child(card_sprite)
+		print("Card loaded:", card_name, "at position:", position)
+		return card_sprite
+	else:
+		print("Card image not found:", card_path)
+		return null
